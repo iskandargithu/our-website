@@ -8,13 +8,6 @@ export interface MenuItem {
   created_at: string;
 }
 
-export interface Setting {
-  id: string;
-  key: string;
-  value: string;
-  updated_at: string;
-}
-
 export type Language = 'en' | 'es' | 'zh';
 
 export type Tab = 'home' | 'menu' | 'chefs' | 'discounts';

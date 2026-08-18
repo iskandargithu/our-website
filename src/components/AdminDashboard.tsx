@@ -1,31 +1,31 @@
 import { useState, useEffect } from 'react';
 import { Save, ArrowLeft, Check } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/context/LanguageContext';
 import { MenuItem } from '@/types';
 
 interface AdminDashboardProps {
   items: MenuItem[];
-  onItemsUpdated: () => void;
-  onBack: () => void;
   validCode: string;
   discountPct: number;
-  onSettingsUpdated: () => void;
+  onSettingsUpdate: (
+    newCode: string,
+    newPct: number,
+    priceEdits: Record<string, number>,
+  ) => void;
+  onBack: () => void;
 }
 
 export function AdminDashboard({
   items,
-  onItemsUpdated,
-  onBack,
   validCode,
   discountPct,
-  onSettingsUpdated,
+  onSettingsUpdate,
+  onBack,
 }: AdminDashboardProps) {
   const { t } = useLanguage();
   const [priceEdits, setPriceEdits] = useState<Record<string, string>>({});
   const [codeEdit, setCodeEdit] = useState(validCode);
   const [pctEdit, setPctEdit] = useState(String(discountPct));
-  const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState(false);
 
   useEffect(() => {
@@ -33,39 +33,23 @@ export function AdminDashboard({
     setPctEdit(String(discountPct));
   }, [validCode, discountPct]);
 
-  async function handleSave() {
-    setSaving(true);
-    try {
-      for (const item of items) {
-        const editVal = priceEdits[item.id];
-        if (editVal !== undefined && editVal !== '') {
-          const newPrice = parseFloat(editVal);
-          if (!isNaN(newPrice) && newPrice >= 0) {
-            await supabase
-              .from('menu_items')
-              .update({ price: newPrice })
-              .eq('id', item.id);
-          }
+  function handleSave() {
+    const numericPriceEdits: Record<string, number> = {};
+    for (const item of items) {
+      const editVal = priceEdits[item.id];
+      if (editVal !== undefined && editVal !== '') {
+        const newPrice = parseFloat(editVal);
+        if (!isNaN(newPrice) && newPrice >= 0) {
+          numericPriceEdits[item.id] = newPrice;
         }
       }
-
-      await supabase
-        .from('settings')
-        .update({ value: codeEdit.trim().toUpperCase() })
-        .eq('key', 'discount_code');
-      await supabase
-        .from('settings')
-        .update({ value: pctEdit })
-        .eq('key', 'discount_percentage');
-
-      onItemsUpdated();
-      onSettingsUpdated();
-      setPriceEdits({});
-      setSavedMsg(true);
-      setTimeout(() => setSavedMsg(false), 3000);
-    } finally {
-      setSaving(false);
     }
+
+    const newPct = Math.max(0, Math.min(100, parseInt(pctEdit, 10) || 0));
+    onSettingsUpdate(codeEdit.trim().toUpperCase(), newPct, numericPriceEdits);
+    setPriceEdits({});
+    setSavedMsg(true);
+    setTimeout(() => setSavedMsg(false), 3000);
   }
 
   return (
@@ -166,11 +150,10 @@ export function AdminDashboard({
         <div className="flex items-center gap-4">
           <button
             onClick={handleSave}
-            disabled={saving}
-            className="inline-flex items-center gap-2 rounded-xl bg-glow-400 px-6 py-3 text-sm font-semibold text-espresso-900 transition-all hover:bg-glow-300 hover:shadow-lg hover:shadow-glow-400/30 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-glow-400 px-6 py-3 text-sm font-semibold text-espresso-900 transition-all hover:bg-glow-300 hover:shadow-lg hover:shadow-glow-400/30"
           >
             <Save className="h-4 w-4" />
-            {saving ? 'Saving...' : t.adminSave}
+            {t.adminSave}
           </button>
           {savedMsg && (
             <span className="inline-flex items-center gap-1.5 text-sm text-success animate-slide-down">

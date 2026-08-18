@@ -1,114 +1,130 @@
-import React, { useState, useEffect } from 'react';
-import Header from './components/Header';
-import Hero from './components/Hero';
-import MenuSection from './components/MenuSection';
-import ChefsSection from './components/ChefsSection';
-import CouponBox from './components/CouponBox';
-import DiscountsSection from './components/DiscountsSection';
-import Footer from './components/Footer';
-import AdminDashboard from './components/AdminDashboard';
-import { LanguageProvider } from './context/LanguageContext';
+import { useState, useEffect } from 'react';
+import { LanguageProvider } from '@/context/LanguageContext';
+import { TopMarquee, Navbar } from '@/components/Header';
+import { Hero } from '@/components/Hero';
+import { MenuSection } from '@/components/MenuSection';
+import { ChefsSection } from '@/components/ChefsSection';
+import { DiscountsSection } from '@/components/DiscountsSection';
+import { CouponBox } from '@/components/CouponBox';
+import { AdminDashboard } from '@/components/AdminDashboard';
+import { Footer } from '@/components/Footer';
+import { Tab } from '@/types';
+import { MENU_ITEMS, CAFE_SETTINGS } from '@/lib/data';
 
-// Hardcoded premium data array that bypasses Supabase completely
-const OFFLINE_MENU_ITEMS = [
-  {
-    id: '1',
-    name: 'Espresso Intenso',
-    description: 'A full-bodied, dark roast espresso shot with a rich, velvety crema coating.',
-    price: 3.50,
-    category: 'coffee',
-    image_url: 'https://unsplash.com',
-    id_category: 'coffee'
-  },
-  {
-    id: '2',
-    name: 'Velvet Vanilla Latte',
-    description: 'Signature espresso blended with smooth Madagascar vanilla bean syrup and micro-foam.',
-    price: 4.75,
-    category: 'coffee',
-    image_url: 'https://unsplash.com',
-    id_category: 'coffee'
-  },
-  {
-    id: '3',
-    name: 'The Signature Burger',
-    description: 'Premium flame-grilled Angus beef, melted cheddar cheese, crisp butter lettuce, and house sauce on a brioche bun.',
-    price: 13.99,
-    category: 'meals',
-    image_url: 'https://unsplash.com',
-    id_category: 'meals'
-  },
-  {
-    id: '4',
-    name: 'Crispy Truffle Fries',
-    description: 'Golden, hand-cut potatoes tossed in white truffle oil, grated parmesan cheese, and fresh rosemary.',
-    price: 6.50,
-    category: 'snacks',
-    image_url: 'https://unsplash.com',
-    id_category: 'snacks'
-  },
-  {
-    id: '5',
-    name: 'Avocado Toast Elite',
-    description: 'Smashed organic avocado, heirloom cherry tomatoes, feta cheese, and microgreens on toasted sourdough.',
-    price: 9.25,
-    category: 'meals',
-    image_url: 'https://unsplash.com',
-    id_category: 'meals'
-  },
-  {
-    id: '6',
-    name: 'Warm Fudge Brownie',
-    description: 'Rich, gooey double chocolate brownie served warm with a dusting of premium powdered sugar.',
-    price: 5.00,
-    category: 'desserts',
-    image_url: 'https://unsplash.com',
-    id_category: 'desserts'
-  }
-];
-
-export default function App() {
-  const [items, setItems] = useState(OFFLINE_MENU_ITEMS);
+function AppContent() {
+  const [route, setRoute] = useState(window.location.hash);
+  const [activeTab, setActiveTab] = useState<Tab>('home');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [discountActive, setDiscountActive] = useState(false);
-  const [discountPct, setDiscountPct] = useState(0);
-  const [showAdmin, setShowAdmin] = useState(false);
+  const [items, setItems] = useState(MENU_ITEMS);
+  const [validCode, setValidCode] = useState(CAFE_SETTINGS.discountCode);
+  const [discountPct, setDiscountPct] = useState(CAFE_SETTINGS.discountPercentage);
 
-  // Fallback check to ensure items array never empties out
   useEffect(() => {
-    if (!items || items.length === 0) {
-      setItems(OFFLINE_MENU_ITEMS);
-    }
-  }, [items]);
+    const onHashChange = () => setRoute(window.location.hash);
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
-  if (showAdmin) {
-    return <AdminDashboard onClose={() => setShowAdmin(false)} />;
+  function navigateTo(tab: Tab) {
+    setActiveTab(tab);
+    setSearchOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function goToAdmin() {
+    window.location.hash = '/admin';
+  }
+
+  function goHome() {
+    window.location.hash = '';
+    navigateTo('home');
+  }
+
+  function handleSettingsUpdate(newCode: string, newPct: number, priceEdits: Record<string, number>) {
+    setValidCode(newCode);
+    setDiscountPct(newPct);
+    setItems((prev) =>
+      prev.map((item) =>
+        priceEdits[item.id] !== undefined ? { ...item, price: priceEdits[item.id] } : item,
+      ),
+    );
+  }
+
+  const isAdmin = route === '#/admin';
+
+  if (isAdmin) {
+    return (
+      <AdminDashboard
+        items={items}
+        validCode={validCode}
+        discountPct={discountPct}
+        onSettingsUpdate={handleSettingsUpdate}
+        onBack={goHome}
+      />
+    );
   }
 
   return (
-    <LanguageProvider>
-      <div className="min-h-screen bg-stone-950 text-stone-100 antialiased selection:bg-amber-500 selection:text-stone-950">
-        <Header onOpenAdmin={() => setShowAdmin(true)} />
-        <main>
-          <Hero />
-          <MenuSection 
-            items={items} 
-            searchQuery={searchQuery}
-            discountActive={discountActive}
-            discountPct={discountPct}
-          />
-          <ChefsSection />
-          <CouponBox 
-            onApplyDiscount={(pct) => {
-              setDiscountActive(true);
-              setDiscountPct(pct);
-            }} 
-          />
-          <DiscountsSection />
-        </main>
-        <Footer />
-      </div>
-    </LanguageProvider>
+    <div className="min-h-screen bg-espresso">
+      <TopMarquee />
+
+      <Navbar
+        onSearchToggle={() => setSearchOpen(!searchOpen)}
+        searchOpen={searchOpen}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onTabSelect={navigateTo}
+        activeTab={activeTab}
+        onLogoClick={() => navigateTo('home')}
+      />
+
+      <main>
+        <div key={activeTab} className="animate-page-enter">
+          {activeTab === 'home' && <Hero onExploreMenu={() => navigateTo('menu')} />}
+
+          {activeTab === 'menu' && (
+            <MenuSection
+              items={items}
+              searchQuery={searchQuery}
+              discountActive={false}
+              discountPct={discountPct}
+            />
+          )}
+
+          {activeTab === 'chefs' && <ChefsSection />}
+
+          {activeTab === 'discounts' && (
+            <>
+              <DiscountsSection />
+              <CouponBox items={items} validCode={validCode} discountPct={discountPct} />
+            </>
+          )}
+        </div>
+      </main>
+
+      <Footer />
+
+      {/* Hidden admin trigger */}
+      <button
+        onClick={goToAdmin}
+        className="fixed bottom-4 right-4 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-espresso-700/80 text-espresso-300 hover:text-glow-400 hover:bg-espresso-600 backdrop-blur-sm border border-espresso-600/40 transition-all opacity-30 hover:opacity-100"
+        aria-label="Admin"
+        title="Admin Dashboard"
+      >
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    </div>
   );
 }
 
+export default function App() {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
+  );
+}
